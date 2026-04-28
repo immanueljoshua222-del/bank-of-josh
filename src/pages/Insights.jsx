@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
+import { useState } from 'react'
+import { useTransactions } from '../contexts/TransactionsContext'
 import { generateInsights, suggestBudget } from '../lib/gemini'
 import { CATEGORY_COLORS } from '../components/AddTransaction'
 
@@ -31,17 +30,11 @@ function InsightCard({ title, subtitle, accentColor, onGenerate, loading, conten
 }
 
 export default function Insights() {
-  const { user } = useAuth()
-  const [transactions, setTransactions] = useState([])
+  const { transactions } = useTransactions()
   const [insights, setInsights] = useState('')
   const [budget, setBudget] = useState('')
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [loadingBudget, setLoadingBudget] = useState(false)
-
-  useEffect(() => {
-    supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }).limit(200)
-      .then(({ data }) => setTransactions(data || []))
-  }, [])
 
   const now = new Date()
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`

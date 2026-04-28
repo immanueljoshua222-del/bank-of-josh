@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTransactions } from '../contexts/TransactionsContext'
 import AddTransaction, { CATEGORY_COLORS } from '../components/AddTransaction'
 import DateRangeFilter from '../components/DateRangeFilter'
 import { DEFAULT_PRESET, getRange, inRange } from '../lib/dateRange'
@@ -9,8 +10,7 @@ const fmt = n => '₹' + Number(n || 0).toLocaleString('en-IN')
 
 export default function Transactions() {
   const { user } = useAuth()
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { transactions, loading, removeLocal } = useTransactions()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [presetKey, setPresetKey] = useState(DEFAULT_PRESET)
@@ -19,18 +19,10 @@ export default function Transactions() {
 
   const range = useMemo(() => getRange(presetKey, customRange), [presetKey, customRange])
 
-  async function fetchData() {
-    const { data } = await supabase
-      .from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false })
-    setTransactions(data || [])
-    setLoading(false)
-  }
-  useEffect(() => { fetchData() }, [])
-
   async function handleDelete(id) {
     setDeleting(id)
+    removeLocal(id)
     await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id)
-    setTransactions(prev => prev.filter(t => t.id !== id))
     setDeleting(null)
   }
 
@@ -53,7 +45,7 @@ export default function Transactions() {
           <h1 style={{ color: 'white', fontSize: '22px', fontWeight: 700, letterSpacing: '-0.5px', margin: 0 }}>Transactions</h1>
           <p style={{ color: '#4b5563', fontSize: '13px', marginTop: '4px' }}>{filtered.length} records</p>
         </div>
-        <AddTransaction onAdded={fetchData} />
+        <AddTransaction />
       </div>
 
       {/* Summary */}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { TransactionsProvider } from './contexts/TransactionsContext'
 import Layout from './components/Layout'
 import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
@@ -9,7 +10,11 @@ import Insights from './pages/Insights'
 function ProtectedLayout() {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
-  return <Layout><Outlet /></Layout>
+  return (
+    <TransactionsProvider>
+      <Layout><Outlet /></Layout>
+    </TransactionsProvider>
+  )
 }
 
 function AppRoutes() {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTransactions } from '../contexts/TransactionsContext'
 import { parseNaturalLanguage } from '../lib/gemini'
 
 const CATEGORIES = {
@@ -25,6 +26,7 @@ const inputStyle = {
 
 export default function AddTransaction({ onAdded }) {
   const { user } = useAuth()
+  const { addLocal } = useTransactions()
   const [open, setOpen] = useState(false)
   const [aiText, setAiText] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -66,16 +68,20 @@ export default function AddTransaction({ onAdded }) {
   async function handleSave() {
     if (!form.amount || isNaN(parseFloat(form.amount))) return
     setSaving(true)
-    const { error } = await supabase.from('transactions').insert({
+    const { data, error } = await supabase.from('transactions').insert({
       user_id: user.id,
       type: form.type,
       amount: parseFloat(form.amount),
       category: form.category,
       description: form.description,
       date: form.date,
-    })
+    }).select().single()
     setSaving(false)
-    if (!error) { resetAndClose(); onAdded?.() }
+    if (!error && data) {
+      addLocal(data)
+      resetAndClose()
+      onAdded?.()
+    }
   }
 
   const isMobile = window.innerWidth <= 768

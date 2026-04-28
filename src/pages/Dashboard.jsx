@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
+import { useMemo, useState } from 'react'
+import { useTransactions } from '../contexts/TransactionsContext'
 import AddTransaction, { CATEGORY_COLORS } from '../components/AddTransaction'
 import DateRangeFilter from '../components/DateRangeFilter'
 import { DEFAULT_PRESET, getRange, inRange, rangeLabel, buildBuckets } from '../lib/dateRange'
@@ -36,18 +35,9 @@ const PieTip = ({ active, payload }) => active && payload?.length ? (
 ) : null
 
 export default function Dashboard() {
-  const { user } = useAuth()
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { transactions, loading } = useTransactions()
   const [presetKey, setPresetKey] = useState(DEFAULT_PRESET)
   const [customRange, setCustomRange] = useState(null)
-
-  async function fetchData() {
-    const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false })
-    setTransactions(data || [])
-    setLoading(false)
-  }
-  useEffect(() => { fetchData() }, [])
 
   const now = new Date()
   const range = useMemo(() => getRange(presetKey, customRange), [presetKey, customRange])
@@ -90,7 +80,7 @@ export default function Dashboard() {
           </p>
           <h1 style={{ color: 'white', fontSize: '22px', fontWeight: 700, letterSpacing: '-0.5px', margin: 0 }}>Overview</h1>
         </div>
-        <AddTransaction onAdded={fetchData} />
+        <AddTransaction />
       </div>
 
       {/* Date range filter */}
