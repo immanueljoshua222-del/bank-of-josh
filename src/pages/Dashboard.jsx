@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import AddTransaction, { CATEGORY_COLORS } from '../components/AddTransaction'
+import DateRangeFilter from '../components/DateRangeFilter'
+import { DEFAULT_PRESET, getRange, inRange, rangeLabel, buildBuckets } from '../lib/dateRange'
 import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const fmt = n => '₹' + Number(n || 0).toLocaleString('en-IN')
@@ -37,6 +39,8 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [presetKey, setPresetKey] = useState(DEFAULT_PRESET)
+  const [customRange, setCustomRange] = useState(null)
 
   async function fetchData() {
     const { data } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false })
@@ -46,30 +50,28 @@ export default function Dashboard() {
   useEffect(() => { fetchData() }, [])
 
   const now = new Date()
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const monthTx = transactions.filter(t => t.date?.startsWith(thisMonth))
-  const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const expenses = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const range = useMemo(() => getRange(presetKey, customRange), [presetKey, customRange])
+  const rangeTx = useMemo(() => transactions.filter(t => inRange(t.date, range)), [transactions, range])
+  const rangeName = rangeLabel(presetKey, range)
+
+  const income = rangeTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const expenses = rangeTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const balance = income - expenses
   const savingsRate = income > 0 ? Math.round((balance / income) * 100) : 0
 
-  const byCategory = monthTx.filter(t => t.type === 'expense').reduce((acc, t) => {
+  const byCategory = rangeTx.filter(t => t.type === 'expense').reduce((acc, t) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount; return acc
   }, {})
   const donutData = Object.entries(byCategory).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
 
-  const trendData = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    return {
-      month: d.toLocaleString('default', { month: 'short' }),
-      Income: transactions.filter(t => t.date?.startsWith(key) && t.type === 'income').reduce((s, t) => s + t.amount, 0),
-      Expenses: transactions.filter(t => t.date?.startsWith(key) && t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-    }
-  })
+  const trendData = useMemo(() => buildBuckets(range, transactions).map(b => ({ month: b.label, Income: b.Income, Expenses: b.Expenses })), [range, transactions])
 
-  const recent = transactions.slice(0, 8)
-  const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' })
+  const recent = rangeTx.slice(0, 8)
+
+  function handleRangeChange(key, custom) {
+    setPresetKey(key)
+    setCustomRange(custom)
+  }
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -91,11 +93,16 @@ export default function Dashboard() {
         <AddTransaction onAdded={fetchData} />
       </div>
 
+      {/* Date range filter */}
+      <div style={{ marginBottom: '18px' }}>
+        <DateRangeFilter value={presetKey} custom={customRange} onChange={handleRangeChange} />
+      </div>
+
       {/* Stats */}
       <div className="stats-grid">
         <div className="card" style={{ background: 'linear-gradient(145deg, #13132b, #0f0f20)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '90px', height: '90px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%)' }} />
-          <p style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>Net Balance · {monthName}</p>
+          <p style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>Net Balance · {rangeName}</p>
           <p style={{ color: 'white', fontSize: '32px', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>{fmt(balance)}</p>
           <div style={{ display: 'flex', gap: '16px', marginTop: '14px' }}>
             <div><p style={{ color: '#10b981', fontSize: '13px', fontWeight: 600 }}>+{fmt(income)}</p><p style={{ color: '#4b5563', fontSize: '11px' }}>income</p></div>
@@ -103,8 +110,8 @@ export default function Dashboard() {
             <div><p style={{ color: '#ef4444', fontSize: '13px', fontWeight: 600 }}>-{fmt(expenses)}</p><p style={{ color: '#4b5563', fontSize: '11px' }}>expenses</p></div>
           </div>
         </div>
-        <StatCard label="Income" value={fmt(income)} sub="This month" color="#10b981" icon="↗" />
-        <StatCard label="Expenses" value={fmt(expenses)} sub="This month" color="#ef4444" icon="↙" />
+        <StatCard label="Income" value={fmt(income)} sub={rangeName} color="#10b981" icon="↗" />
+        <StatCard label="Expenses" value={fmt(expenses)} sub={rangeName} color="#ef4444" icon="↙" />
         <StatCard label="Savings" value={`${savingsRate}%`} sub="of income" color="#6366f1" icon="◎" />
       </div>
 

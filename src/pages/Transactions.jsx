@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import AddTransaction, { CATEGORY_COLORS } from '../components/AddTransaction'
+import DateRangeFilter from '../components/DateRangeFilter'
+import { DEFAULT_PRESET, getRange, inRange } from '../lib/dateRange'
 
 const fmt = n => '₹' + Number(n || 0).toLocaleString('en-IN')
 
@@ -11,7 +13,11 @@ export default function Transactions() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [presetKey, setPresetKey] = useState(DEFAULT_PRESET)
+  const [customRange, setCustomRange] = useState(null)
   const [deleting, setDeleting] = useState(null)
+
+  const range = useMemo(() => getRange(presetKey, customRange), [presetKey, customRange])
 
   async function fetchData() {
     const { data } = await supabase
@@ -32,7 +38,8 @@ export default function Transactions() {
     const matchType = filter === 'all' || t.type === filter
     const q = search.toLowerCase()
     const matchSearch = !q || t.description?.toLowerCase().includes(q) || t.category?.toLowerCase().includes(q)
-    return matchType && matchSearch
+    const matchDate = inRange(t.date, range)
+    return matchType && matchSearch && matchDate
   })
 
   const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
@@ -61,6 +68,15 @@ export default function Transactions() {
             <span style={{ color: s.color, fontWeight: 700, fontSize: '13px' }}>{s.value}</span>
           </div>
         ))}
+      </div>
+
+      {/* Date range */}
+      <div style={{ marginBottom: '12px' }}>
+        <DateRangeFilter
+          value={presetKey}
+          custom={customRange}
+          onChange={(key, custom) => { setPresetKey(key); setCustomRange(custom) }}
+        />
       </div>
 
       {/* Search + filter */}
