@@ -78,8 +78,9 @@ export default function AddTransaction({ onAdded }) {
     if (!error) { resetAndClose(); onAdded?.() }
   }
 
-  const overlay = { position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }
-  const card = { width: '100%', maxWidth: '440px', borderRadius: '20px', background: '#0f0f1e', border: '1px solid rgba(255,255,255,0.08)', padding: '28px', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }
+  const isMobile = window.innerWidth <= 768
+  const overlay = { position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? '0' : '16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }
+  const card = { width: '100%', maxWidth: isMobile ? '100%' : '440px', borderRadius: isMobile ? '20px 20px 0 0' : '20px', background: '#0f0f1e', border: '1px solid rgba(255,255,255,0.08)', padding: isMobile ? '24px 20px max(24px, env(safe-area-inset-bottom))' : '28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.5)', maxHeight: isMobile ? '92dvh' : 'auto', overflowY: 'auto' }
 
   return (
     <>
